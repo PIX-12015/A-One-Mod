@@ -1,0 +1,15 @@
+displayName: "This One Mod"
+
+name: "This_Mod"
+
+author: "ChuongDianBao"
+
+main: "AOneMod.ThisMod"
+
+description: "这是用java重写的一个模组"
+
+version: 0.54
+
+minGameVersion: 160
+
+java: true

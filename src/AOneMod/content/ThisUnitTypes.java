@@ -17,9 +17,9 @@ import mindustry.type.Weapon;
 
 public class ThisUnitTypes {
     public static UnitType
-            tianBing, fengZheng, bee, queenBee;
+            bee, queenBee;
     public static void load (){
-        tianBing = new UnitType("tian-bing"){{
+        /*tianBing = new UnitType("tian-bing"){{
             constructor = MechUnit::create;
 
             health = 2200f;
@@ -112,7 +112,7 @@ public class ThisUnitTypes {
                 }};
             }});
 
-        }};
+        }};*/
 
         bee = new UnitType("bee"){{
             aiController = SmartSuicideAI::new;
@@ -161,10 +161,6 @@ public class ThisUnitTypes {
             // 每 30 秒产出一个子单位，最多同时存活 6 个
             abilities.add(new LimitedUnitSpawnAbility(bee, 60f * 17f, 0f, 0f, 6));
         }};
-
-//        fengZheng = new UnitType("fengZheng"){{
-//
-//        }};
 
     }
 }

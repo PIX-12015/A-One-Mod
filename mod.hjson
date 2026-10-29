@@ -6,9 +6,9 @@ author: "ChuongDianBao"
 
 main: "AOneMod.ThisMod"
 
-description: "这是用java重写的一个模组"
+description: "这是一个模组"
 
-version: 0.54
+version: 0.6
 
 minGameVersion: 160
 

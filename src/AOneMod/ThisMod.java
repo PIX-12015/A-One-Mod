@@ -16,6 +16,7 @@ public class ThisMod extends Mod {
             Time.run(10f, ()->{
                 BaseDialog dialog = new BaseDialog("hi!");
                 dialog.cont.add("233");
+
                 //一定要加这个代码，不然弹窗界面没有返回按钮。
                 dialog.addCloseButton();
                 dialog.show();
@@ -26,7 +27,7 @@ public class ThisMod extends Mod {
 
     @Override
     public void loadContent() {
-        // 1. 获取一个未被其他模组占用的 ID（7-255）
+        /*// 1. 获取一个未被其他模组占用的 ID（7-255）
         Team BlueTeam = Team.get(5);
 
         // 2. 设置名称（用于本地化键值查找）
@@ -44,7 +45,7 @@ public class ThisMod extends Mod {
         // );
 
         // 4. （可选）注册到内容数据库，使其在图鉴中可见
-        new TeamEntry(BlueTeam.name, BlueTeam);
+        new TeamEntry(BlueTeam.name, BlueTeam);*/
 
         super.loadContent();
         ThisItems.load();

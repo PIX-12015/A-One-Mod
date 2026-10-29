@@ -13,14 +13,16 @@ public class ThisTechTree {
     public static Seq<TechNode> roots = new Seq();
 
     public static void load(){
-        //node() 是通用的研究节点方法，可以用于任何可解锁内容
+        // ===== 制造链：强力压制机 → 铸钉厂 / 炼焦炉 =====
         addToNext(Blocks.graphitePress, ()->{
             node(ThisBlocks.strongPress, Seq.with(new Objectives.Objective[]{new Objectives.Research(ThisItems.iron)}),() -> {
-                node(ThisBlocks.Processing_Factory);
+                node(ThisBlocks.Processing_Factory, () -> {
+                    node(ThisBlocks.cokeOven);
+                });
             });
         });
 
-        //nodeProduce() 主要用于物品的生产链可视化
+        // ===== 物品生产链（可视化）=====
         addToNext(Items.copper, () -> {
             nodeProduce(ThisItems.iron, () -> {
                 nodeProduce(ThisItems.ironPlate, () -> {});
@@ -28,16 +30,44 @@ public class ThisTechTree {
             });
         });
 
+        // ===== 煤 → 焦炭；煤 → 钻石 → 三级钻石墙 =====
         addToNext(Items.coal, () -> {
-            nodeProduce(ThisItems.diamond, () -> {});
-        });
+            nodeProduce(ThisItems.coke);
 
-        addToNext(Blocks.salvo, () -> {
-            node(ThisBlocks.bright, () -> {
-                node(ThisBlocks.nailGun, () -> {});
+            nodeProduce(ThisItems.diamond, () -> {
+                node(ThisBlocks.diamondWall, () -> {
+                    node(ThisBlocks.diamondWallLarge, () -> {
+                        node(ThisBlocks.diamondWallHuge);
+                    });
+                });
             });
         });
 
+        // ===== 炮塔：bright → 钉枪 / 三叉戟 =====
+        addToNext(Blocks.salvo, () -> {
+            node(ThisBlocks.bright, () -> {
+                node(ThisBlocks.nailGun, () -> {});
+                node(ThisBlocks.trident);
+            });
+        });
+
+        // ===== 效果：原版超频穹顶 → 终极超速穹顶 =====
+        addToNext(Blocks.overdriveDome, () -> {
+            node(ThisBlocks.superOverdriveDome);
+        });
+
+        // ===== 单位：地面 / 空中 =====
+        /*addToNext(Blocks.groundFactory, () -> {
+            node(ThisUnitTypes.tianBing);
+        });*/
+
+        addToNext(Blocks.airFactory, () -> {
+            node(ThisUnitTypes.queenBee, () -> {
+                node(ThisUnitTypes.bee);
+            });
+        });
+
+        // ===== 区块 =====
         addToNext(SectorPresets.groundZero, () -> {
             node(ThisSector.Area1, Seq.with(new Objectives.Objective[]{new Objectives.SectorComplete(SectorPresets.groundZero)}),() -> {
                 node(ThisSector.LoginPoint1);

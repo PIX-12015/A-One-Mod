@@ -52,7 +52,13 @@ java{
 }
 
 dependencies{
-    compileOnly(files("libs/dependencies.jar"))
+    // 本地有 jar 就直接用（离线，不受网络/证书影响）
+    // 云端 CI 没有 jar，走原版联网下载（GitHub Actions 服务器在国外，直连没问题）
+    if(file("libs/dependencies.jar").exists()){
+        compileOnly(files("libs/dependencies.jar"))
+    }else{
+        compileOnly("Anuken:Mindustry:$mindustryVersion")
+    }
 }
 
 tasks.jar{

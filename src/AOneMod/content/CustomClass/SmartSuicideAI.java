@@ -1,24 +1,23 @@
 package AOneMod.content.CustomClass;
 
-import arc.math.geom.*;
-import arc.util.*;
-import mindustry.Vars;
-import mindustry.ai.*;
-import mindustry.ai.types.*;
-import mindustry.core.World;
-import mindustry.entities.*;
-import mindustry.gen.*;
-import mindustry.world.*;
-import mindustry.world.blocks.distribution.*;
-import mindustry.world.blocks.liquid.*;
-import mindustry.world.blocks.storage.*;
-import mindustry.world.meta.*;
+import arc.util.Time;
+import mindustry.ai.types.FlyingAI;
+import mindustry.entities.Units;
+import mindustry.gen.Groups;
+import mindustry.gen.Healthc;
+import mindustry.gen.Teamc;
+import mindustry.gen.Unit;
+import mindustry.world.blocks.distribution.Conveyor;
+import mindustry.world.blocks.liquid.Conduit;
 
-import static mindustry.Vars.*;
-
+/**
+ * 蜂群自杀 AI。
+ *
+ * 关键点：不要去覆写 updateUnit()，而是覆写 findTarget()。
+ * AIController.updateUnit() 在 retarget() 时会调用 findTarget() 来给 target 赋值，
+ * 所以只要在这里接手，下面那套「按血量决定派几只蜂」的分配逻辑才会真正参与决策。
+ */
 public class SmartSuicideAI extends FlyingAI {
-
-    static boolean blockedByBlock;
 
     /**
      * 母单位引用，由 LimitedUnitSpawnAbility 在产出时注入
@@ -31,6 +30,12 @@ public class SmartSuicideAI extends FlyingAI {
     public float followRadius = 60f;
 
     /**
+     * 索敌半径（世界单位）。单位自身的 range 只有 40，蜂群会几乎撞不上敌人才开打，
+     * 所以这里给一个保底半径。填 0 就退回"只用单位自身射程"。
+     */
+    public float searchRange = 240f;
+
+    /**
      * 无攻击目标时的累计时间（ticks）
      */
     protected float idleTime = 0f;
@@ -41,7 +46,8 @@ public class SmartSuicideAI extends FlyingAI {
     public float maxIdleTime = 60f * 30f;
 
     /**
-     * 根据目标当前血量，返回允许集中攻击该目标的最大子单位数量
+     * 根据目标当前血量，返回允许集中攻击该目标的最大子单位数量。
+     * 血量太低的目标不值得浪费蜂群。
      */
     public static int maxUnitsForTarget(float health) {
         if (health <= 110f) return 0;
@@ -52,7 +58,8 @@ public class SmartSuicideAI extends FlyingAI {
     }
 
     /**
-     * 统计当前正在攻击同一目标的同类子单位数量
+     * 统计当前正在攻击同一目标的同类子单位数量。
+     * 只统计同一母单位下的蜂，不同蜂后的蜂群互不干扰。
      */
     public int countAttackingUnits(Teamc attackTarget) {
         int count = 0;
@@ -61,7 +68,6 @@ public class SmartSuicideAI extends FlyingAI {
                     && u.type == unit.type
                     && u.controller() instanceof SmartSuicideAI) {
                 SmartSuicideAI ai = (SmartSuicideAI) u.controller();
-                // 只统计同一母单位的子单位
                 if (ai.target == attackTarget && ai.parent == this.parent) {
                     count++;
                 }
@@ -71,29 +77,41 @@ public class SmartSuicideAI extends FlyingAI {
     }
 
     /**
-     * 找到合适的目标（考虑血量阈值和分配数量）
+     * 找到合适的目标：先找最近的，再按血量与已分配数量决定是否放弃。
      */
-    protected Teamc findSuitableTarget() {
+    protected Teamc findSuitableTarget(float x, float y, float range, boolean air, boolean ground) {
+        float r = searchRange > 0f ? Math.max(range, searchRange) : range;
+
         Teamc candidate = Units.closestTarget(
-                unit.team, unit.x, unit.y, unit.range(),
-                u -> u.checkTarget(unit.type.targetAir, unit.type.targetGround),
-                t -> unit.type.targetGround && !(t.block instanceof Conveyor || t.block instanceof Conduit)
+                unit.team, x, y, r,
+                u -> u.checkTarget(air, ground),
+                t -> ground && !(t.block instanceof Conveyor || t.block instanceof Conduit)
         );
 
         if (candidate == null) return null;
 
         if (candidate instanceof Healthc) {
             Healthc h = (Healthc) candidate;
+
             int maxAllowed = maxUnitsForTarget(h.health());
+            // 血量太低，不值得浪费蜂群
             if (maxAllowed <= 0) return null;
 
-            int currentCount = countAttackingUnits(candidate);
-            if (currentCount >= maxAllowed) return null;
+            // 已经够蜂在打了，换别的目标（返回 null 即本轮不参战）
+            if (countAttackingUnits(candidate) >= maxAllowed) return null;
         }
 
         return candidate;
     }
 
+    /**
+     * 接管目标选取。返回 null 时 target 保持为空，
+     * updateMovement() 会走"跟随母单位 / 空闲计时"分支。
+     */
+    @Override
+    public Teamc findTarget(float x, float y, float range, boolean air, boolean ground) {
+        return findSuitableTarget(x, y, range, air, ground);
+    }
 
     @Override
     public void updateMovement() {
@@ -125,115 +143,3 @@ public class SmartSuicideAI extends FlyingAI {
         }
     }
 }
-
-
-//    @Override
-//    public void updateUnit() {
-//        // 清理失效的 parent 引用
-//        if (parent != null && !parent.isValid()) parent = null;
-//
-//        if (Units.invalidateTarget(target, unit.team, unit.x, unit.y, Float.MAX_VALUE)) {
-//            target = null;
-//        }
-//
-//        if (retarget()) {
-//            target = findSuitableTarget();
-//        }
-//
-//        Building core = unit.closestEnemyCore();
-//        boolean rotate = false, shoot = false, moveToTarget = false;
-//
-//        // 只有在没有 parent 时才回退到核心
-//        if (target == null && parent == null) {
-//            target = core;
-//        }
-//
-//        if (!Units.invalidateTarget(target, unit, unit.range()) && unit.hasWeapons()) {
-//            rotate = true;
-//
-//            float targetSize;
-//            if (target instanceof Building) {
-//                targetSize = ((Building) target).block.size * Vars.tilesize / 2f;
-//            } else {
-//                targetSize = ((Hitboxc) target).hitSize() / 2f;
-//            }
-//            shoot = unit.within(target, unit.type.weapons.first().bullet.range + targetSize);
-//
-//            boolean skipMove = false;
-//            if (target instanceof Building) {
-//                Building build = (Building) target;
-//                if (!(build.block instanceof CoreBlock) && (
-//                        build.block.group == BlockGroup.walls ||
-//                                build.block.group == BlockGroup.liquids ||
-//                                build.block.group == BlockGroup.transportation
-//                )) {
-//                    skipMove = true;
-//                }
-//            }
-//
-//            if (!skipMove) {
-//                blockedByBlock = false;
-//
-//                boolean blocked = World.raycast(unit.tileX(), unit.tileY(), target.tileX(), target.tileY(), (x, y) -> {
-//                    for (Point2 p : Geometry.d4c) {
-//                        Tile tile = Vars.world.tile(x + p.x, y + p.y);
-//                        if (tile != null && tile.build == target) return false;
-//                        if (tile != null && tile.build != null && tile.build.team != unit.team()) {
-//                            blockedByBlock = true;
-//                            return true;
-//                        } else {
-//                            return tile == null || tile.solid();
-//                        }
-//                    }
-//                    return false;
-//                });
-//
-//                if (blockedByBlock) shoot = true;
-//
-//                if (!blocked) {
-//                    moveToTarget = true;
-//                    unit.movePref(vec.set(target).sub(unit).limit(unit.speed()));
-//                }
-//            }
-//        }
-//
-//        if (!moveToTarget) {
-//            if (target != null) {
-//                // 有目标但被阻挡，重置空闲计时器
-//                idleTime = 0f;
-//            } else {
-//                // 没有攻击目标：累计空闲时间
-//                idleTime += Time.delta;
-//
-//                if (idleTime >= maxIdleTime) {
-//                    // 超过30秒无目标，自杀（触发 shootOnDeath 武器）
-//                    unit.kill();
-//                    return;
-//                }
-//
-//                if (parent != null) {
-//                    // 跟随母单位
-//                    if (!unit.within(parent, followRadius)) {
-//                        unit.movePref(vec.set(parent).sub(unit).limit(unit.speed()));
-//                    }
-//                } else {
-//                    // 没有母单位，使用寻路
-//                    boolean move = true;
-//                    if (core == null && state.rules.waves && unit.team == state.rules.defaultTeam) {
-//                        Tile spawner = getClosestSpawner();
-//                        if (spawner != null && unit.within(spawner, state.rules.dropZoneRadius + 120f)) {
-//                            move = false;
-//                        }
-//                    }
-//                    if (move) pathfind(Pathfinder.fieldCore);
-//                }
-//            }
-//        } else {
-//            // 正在移动到目标，重置空闲计时器
-//            idleTime = 0f;
-//        }
-//
-//        unit.controlWeapons(rotate, shoot);
-//        faceTarget();
-//    }
-//}

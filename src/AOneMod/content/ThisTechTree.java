@@ -63,7 +63,7 @@ public class ThisTechTree {
 
         addToNext(Blocks.airFactory, () -> {
             node(ThisUnitTypes.queenBee, () -> {
-                node(ThisUnitTypes.bee);
+                node(ThisUnitTypes.sting);
             });
         });
 

@@ -1,23 +1,27 @@
 package AOneMod.content;
 
-import AOneMod.content.CustomClass.AirTrackingLaserBulletType;
-import AOneMod.content.CustomClass.LimitedUnitSpawnAbility;
-import AOneMod.content.CustomClass.SmartSuicideAI;
+import AOneMod.content.CustomClass.SequentialRowPattern;
 import arc.graphics.Color;
+import mindustry.content.Blocks;
 import mindustry.content.Fx;
-import mindustry.content.StatusEffects;
-import mindustry.entities.abilities.ShieldArcAbility;
+import mindustry.content.Items;
 import mindustry.entities.bullet.BasicBulletType;
 import mindustry.entities.bullet.BulletType;
-import mindustry.gen.MechUnit;
+import mindustry.entities.bullet.ExplosionBulletType;
 import mindustry.gen.Sounds;
 import mindustry.gen.UnitEntity;
+import mindustry.graphics.Layer;
+import mindustry.graphics.Pal;
 import mindustry.type.UnitType;
 import mindustry.type.Weapon;
+import mindustry.type.unit.MissileUnitType;
+import mindustry.world.blocks.units.UnitFactory;
+
+import static mindustry.type.ItemStack.with;
 
 public class ThisUnitTypes {
     public static UnitType
-            bee, queenBee;
+            sting, queenBee;
     public static void load (){
         /*tianBing = new UnitType("tian-bing"){{
             constructor = MechUnit::create;
@@ -114,53 +118,127 @@ public class ThisUnitTypes {
 
         }};*/
 
-        bee = new UnitType("bee"){{
-            aiController = SmartSuicideAI::new;
-            constructor = UnitEntity::create;
-            flying = true;
-            createWreck = false;
+        // ===== 导弹（原「蜂」，改为自杀式导弹）=====
+        // 对照官方「天灾」(anthicus) 的 anthicus-missile 写法。
+        sting = new MissileUnitType("sting"){{
+            // MissileUnitType 的构造函数已经帮我们设好了这些，不用再写：
+            //   flying = true
+            //   constructor = TimedKillUnit::create   → 寿命到了自动炸
+            //   controller = MissileAI                → 自动索敌并撞击
+            //   hidden = true                         → 数据库里不显示
+            //   useUnitCap = false                    → 不占单位上限，可以随便发
+            //   createWreck = false / createScorch = false
+            //   trailLength = 7, speed = 4f, lifetime = 102f（下面会覆盖）
 
-            speed = 2.4f;
-            hitSize = 6f;
-            health = 80f;
-            range = 40f;
+            speed = 3.6f;                  // 导弹飞行速度
+            lifetime = 60f * 2.2f;         // 飞 2.2 秒还没撞上就自爆，不会永远飞
+            health = 35;                   // 可以被防空打掉
+            hitSize = 5f;
+            rotateSpeed = 3f;
+            maxRange = 6f;
+
+            lowAltitude = true;            // 低空，有地面阴影更好看
+
+            // 尾焰
+            engineColor = trailColor = Color.valueOf("ffd27f");
+            engineSize = 1.9f;
+            engineLayer = Layer.effect;
+            outlineColor = Pal.darkOutline;
 
             weapons.add(new Weapon(){{
-                shootOnDeath = true;   // 死亡时触发武器（自杀爆炸）
-                targetUnderBlocks = false;
-                reload = 24f;
-                shootCone = 180f;
-                ejectEffect = Fx.none;
-                x = shootY = 0f;
+                shootSound = Sounds.none;
+                shootCone = 360f;
                 mirror = false;
-                bullet = new BulletType(){{
-                    collidesTiles = false;
-                    collides = false;
-                    scaledSplashDamage = true;
-                    rangeOverride = 25f;
-                    hitEffect = Fx.pulverize;
-                    speed = 0f;
-                    splashDamageRadius = 30f;
-                    instantDisappear = true;
-                    splashDamage = 50f;   // 爆炸伤害 45
-                    killShooter = true;   // 子弹杀死射击者（自杀）
-                    hittable = false;
-                    collidesAir = true;
-                }};
+                reload = 1f;
+                shootOnDeath = true;                     // 撞上目标 / 寿命到 → 起爆
+                shootOnDeathEffect = Fx.massiveExplosion;
+                bullet = new ExplosionBulletType(62f, 34f); // 爆炸伤害 62，半径 34
             }});
         }};
 
         queenBee = new UnitType("queen-bee"){{
             constructor = UnitEntity::create;
             flying = true;
+            lowAltitude = true;
 
+            // ===== 生存属性 =====
             health = 1300f;
+            armor = 4f;
+            hitSize = 20f;
+
+            // ===== 飞行参数 =====
+            speed = 1.15f;
+            accel = 0.08f;
+            drag = 0.06f;
+            rotateSpeed = 1.6f;
+
+            // ===== 引擎特效 =====
+            engineOffset = 12f;
+            engineSize = 4.2f;
+
+            // ===== 索敌 =====
+            range = 260f;
             targetAir = true;
             targetGround = true;
+            fogRadius = 26f;
 
-            // 每 30 秒产出一个子单位，最多同时存活 6 个
-            abilities.add(new LimitedUnitSpawnAbility(bee, 60f * 17f, 0f, 0f, 6));
+            /*// ===== 自卫武器：尾针 =====
+            weapons.add(new Weapon(){{
+                reload = 45f;
+                x = 8f;
+                y = -1f;
+                shootY = 3f;
+                rotate = true;
+                rotateSpeed = 4f;
+                mirror = true;
+                inaccuracy = 5f;
+                recoil = 1.6f;
+                bullet = new BasicBulletType(6.5f, 26){{
+                    width = 5f;
+                    height = 9f;
+                    lifetime = 40f;
+                    ammoMultiplier = 1f;
+                    shootEffect = Fx.shootBig;
+                    hitEffect = Fx.hitBulletColor;
+                    despawnEffect = Fx.hitBulletColor;
+                    frontColor = Pal.scrapAmmoFront;
+                    backColor = Pal.scrapAmmoBack;
+                }};
+            }});*/
+
+            // ===== 三排毒刺导弹发射器（一次扣扳机打完一轮）=====
+            weapons.add(new Weapon("missile-launcher"){{
+                // ⚠️ 必须大于整轮齐射耗时，否则最后一排会被下一轮打断打不出来
+                // 当前齐射耗时 = rowDelay×(3-1) + sideDelay = 8×2 + 3 = 19 tick
+                // 所以 60 - 19 = 41 tick ≈ 0.68 秒的装填停顿
+                reload = 60f;
+                x = 0f;
+                y = 2f;                         // 发射器本体位置，pattern 的排偏移会叠加上去
+                shootY = 6f;
+                rotate = false;
+                mirror = false;                 // 左右两枚由 pattern 自己发，不用镜像
+                inaccuracy = 6f;
+                recoil = 2f;
+                recoils = 1;
+                shootSound = Sounds.shootMissileLarge;
+                shootSoundVolume = 0.6f;
+
+                // 点一下 → 第1排 → 第2排 → 第3排 依次飞出（每排左右各一枚），然后进冷却
+                shoot = new SequentialRowPattern(
+                        new float[]{9f, 3f, -3f},  // 三排沿朝向的位置（正数=更靠前）
+                        8f,                        // 同一排左右两枚的间距
+                        8f,                        // 排与排之间的间隔（tick）
+                        3f                         // 同一排左右两枚的间隔（tick）
+                );
+
+                bullet = new BulletType(){{
+                    // 这颗子弹只是个载体：speed=0 让它在原地立刻生成导弹单位，
+                    // 真正的飞行和伤害都由 MissileUnitType 负责。
+                    speed = 0f;
+                    keepVelocity = false;
+                    spawnUnit = sting;
+                }};
+            }});
         }};
-
     }
 }

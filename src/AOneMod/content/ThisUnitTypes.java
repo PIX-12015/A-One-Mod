@@ -208,7 +208,7 @@ public class ThisUnitTypes {
 
             // ===== 三排毒刺导弹发射器（一次扣扳机打完一轮）=====
             weapons.add(new Weapon("missile-launcher"){{
-                // ⚠️ 必须大于整轮齐射耗时，否则最后一排会被下一轮打断打不出来
+                //  必须大于整轮齐射耗时，否则最后一排会被下一轮打断打不出来
                 // 当前齐射耗时 = rowDelay×(3-1) + sideDelay = 8×2 + 3 = 19 tick
                 // 所以 60 - 19 = 41 tick ≈ 0.68 秒的装填停顿
                 reload = 60f;

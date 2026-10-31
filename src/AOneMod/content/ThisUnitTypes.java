@@ -131,7 +131,7 @@ public class ThisUnitTypes {
             //   trailLength = 7, speed = 4f, lifetime = 102f（下面会覆盖）
 
             speed = 3.6f;                  // 导弹飞行速度
-            lifetime = 60f * 2.2f;         // 飞 2.2 秒还没撞上就自爆，不会永远飞
+            lifetime = 60f * 2f;           // 飞 2 秒还没撞上就自爆，不会永远飞
             health = 35;                   // 可以被防空打掉
             hitSize = 5f;
             rotateSpeed = 3f;
